@@ -1,42 +1,40 @@
 import pkg from 'portaleargo-api';
 import ExcelJS from 'exceljs';
 import fs from 'fs/promises';
-import readline from 'readline';
-
 const { Client } = pkg;
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
-async function promptUser(question) {
-    return new Promise((resolve) => {
-        rl.question(question, resolve);
-    });
+// Check if the required command-line arguments are provided
+if (process.argv.length !== 5) {
+    console.error('Usage: node MEDIA.mjs CODSCUOLA USERNAME PASSWORD');
+    process.exit(1);
 }
 
-async function exportToExcel(schoolCode, username, password) {
+const schoolCode = process.argv[2];
+const username = process.argv[3];
+const password = process.argv[4];
+
+const client = new Client({
+    schoolCode,
+    username,
+    password,
+});
+
+async function exportToExcel() {
     console.log('elimino cartella temporanea...');
     await fs.rmdir('.argo', { recursive: true });
     console.log('fatto! effettuo login...');
 
-    const client = new Client({
-        schoolCode,
-        username,
-        password,
-    });
-
     await client.login();
-    var userData = await client.getDettagliProfilo();
-    console.log('ciao, ' + userData.alunno.nome.toLowerCase() + '!');
-    await fs.rm('voti-' + userData.alunno.nome.toLowerCase() + '.xlsx', { recursive: true });
+    var userProfile = await client.getDettagliProfilo();
+    console.log('ciao, ' + userProfile.alunno.nome.toLowerCase() + '!');
+
+    await fs.rm('voti-' + userProfile.alunno.nome.toLowerCase() + '.xlsx', { recursive: true });
 
     var votiLista = client.dashboard.voti;
 
     var workbook = new ExcelJS.Workbook();
     var worksheet = workbook.addWorksheet('Voti');
-
+    
     worksheet.getRow(1).font = { bold: true };
     worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF00' } };
 
@@ -66,18 +64,11 @@ async function exportToExcel(schoolCode, username, password) {
     mediaRow.font = { bold: true };
     mediaRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF00' } };
 
-    await workbook.xlsx.writeFile('voti-' + userData.alunno.nome.toLowerCase() + '.xlsx');
+    await workbook.xlsx.writeFile('voti-' + userProfile.alunno.nome.toLowerCase() + '.xlsx');
     console.log('esportato voti!');
 }
 
-async function main() {
-    const schoolCode = await promptUser('Inserisci il codice scuola: ');
-    const username = await promptUser('Inserisci l\'username: ');
-    const password = await promptUser('Inserisci la password: ');
+console.log('ciao! ti ricordo che di solito se ci sono più figli su un account, viene selezionato il primogenito.');
+setTimeout(exportToExcel, 1000);
 
-    console.log('ciao! Ti ricordo che di solito se ci sono più figli su un account, viene selezionato il primogenito.');
-    setTimeout(() => exportToExcel(schoolCode, username, password), 1000);
-}
-
-main();
 
